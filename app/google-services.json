@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "833027999559",
+    "project_id": "ring-me-up-baec9",
+    "storage_bucket": "ring-me-up-baec9.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:833027999559:android:dfb2774ed360fc3f86ee62",
+        "android_client_info": {
+          "package_name": "com.example.ringmeup"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBzRlilBjF88PqutNvnTJX5Xo-uMBCsBcg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">RING ME UP</string>
+    <string name="no_acc">Don’t have an account? Sign up here</string>
+    <string name="yes_acc">Already have an account? Log in here</string>
+</resources>
