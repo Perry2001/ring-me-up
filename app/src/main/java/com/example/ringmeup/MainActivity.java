@@ -26,6 +26,7 @@ import android.view.View;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ImageView;
@@ -37,24 +38,14 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-
-import org.w3c.dom.Text;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
 
 public class MainActivity extends AppCompatActivity {
-    ImageView logoutBtn;
-    Ringtone ringtone;
-    WebView webView;
-    TextView loading;
-    AppCompatButton lockBtn;
+    private ImageView logoutBtn;
+    private Ringtone ringtone;
+    private WebView webView;
+    private TextView loading;
+    private AppCompatButton lockBtn;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -66,9 +57,22 @@ public class MainActivity extends AppCompatActivity {
         setUpWebView();
         setUpButtonBG();
 
-        lockBtn.setOnClickListener(v-> lock());
+        // Set up the lock button action
+        lockBtn.setOnClickListener(v -> lock());
+    }
 
+    private void initWidgets() {
+        logoutBtn = findViewById(R.id.logout_ImageView);
+        webView = findViewById(R.id.webview);
+        loading = findViewById(R.id.loading_TextView);
+        lockBtn = findViewById(R.id.lock_Button);
+    }
 
+    private void setUpButtons() {
+        logoutBtn.setOnClickListener(v -> {
+            FirebaseAuth.getInstance().signOut();
+            finish();
+        });
     }
 
     private void setUpButtonBG() {
@@ -77,26 +81,23 @@ public class MainActivity extends AppCompatActivity {
         db.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (snapshot.exists()){
-                    long lockStatus = (long) snapshot.child("status").getValue();
+                if (snapshot.exists()) {
+                    long lockStatus = snapshot.child("status").getValue(Long.class);
                     Drawable lockIcon;
 
-                    // Set the drawable at the end (drawableEnd)
-
-
-                    if(lockStatus == 0){
+                    if (lockStatus == 0) {
                         lockBtn.setText("Lock");
-                        lockIcon = getResources().getDrawable(R.drawable.ic_lock);
+                        lockIcon = getResources().getDrawable(R.drawable.ic_lock, null);
                         lockBtn.setBackgroundResource(R.drawable.custom_primary_btn);
-                    } else{
+                    } else {
                         lockBtn.setText("Unlock");
-                        lockIcon = getResources().getDrawable(R.drawable.ic_unlock);
+                        lockIcon = getResources().getDrawable(R.drawable.ic_unlock, null);
                         lockBtn.setBackgroundResource(R.drawable.custom_red_btn);
                     }
 
                     lockBtn.setCompoundDrawablesWithIntrinsicBounds(null, null, lockIcon, null);
                 } else {
-                    Log.d("TAG", "Snapshot not exist");
+                    Log.d("TAG", "Snapshot does not exist");
                 }
             }
 
@@ -113,17 +114,11 @@ public class MainActivity extends AppCompatActivity {
         db.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (snapshot.exists()){
-                    long lockStatus = (long) snapshot.child("status").getValue();
-
-                    if(lockStatus == 0){
-
-                        db.child("status").setValue(1);
-                    } else{
-                        db.child("status").setValue(0);
-                    }
+                if (snapshot.exists()) {
+                    long lockStatus = snapshot.child("status").getValue(Long.class);
+                    db.child("status").setValue(lockStatus == 0 ? 1 : 0);
                 } else {
-                    Log.d("TAG", "Snapshot not exist");
+                    Log.d("TAG", "Snapshot does not exist");
                 }
             }
 
@@ -142,62 +137,59 @@ public class MainActivity extends AppCompatActivity {
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
                 super.onPageStarted(view, url, favicon);
                 pageLoadFailed = false;
-                loading.setVisibility(View.VISIBLE); // Show loading when the page starts
-                webView.setVisibility(View.GONE); // Hide WebView while loading
+                loading.setVisibility(View.VISIBLE);
+                webView.setVisibility(View.GONE);
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
                 if (!pageLoadFailed) {
-                    // Hide the loading TextView only if the page loaded successfully
                     loading.setVisibility(View.GONE);
                     webView.setVisibility(View.VISIBLE);
                 } else {
-                    // If the page failed to load, you can choose to keep the loading view visible
-                    loading.setVisibility(View.VISIBLE); // or handle it differently
+                    loading.setVisibility(View.VISIBLE);
                     webView.setVisibility(View.GONE);
                 }
             }
 
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                // Handle general errors
-                int errorCode = error.getErrorCode();
-                pageLoadFailed = true; // Set the flag to true if an error occurs
-
-                // Display the loading TextView for cleartext error or any other loading error
-                if (errorCode == WebViewClient.ERROR_FAILED_SSL_HANDSHAKE || errorCode == WebViewClient.ERROR_UNKNOWN) {
-                    loading.setVisibility(View.VISIBLE);
-                    webView.setVisibility(View.GONE);
-                }
+                super.onReceivedError(view, request, error);
+                pageLoadFailed = true;
+                Log.d("WEB_VIEW_ERROR", "Error: " + error.getDescription());
+                loading.setVisibility(View.VISIBLE);
+                webView.setVisibility(View.GONE);
             }
 
             @Override
             public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
-                // Handle HTTP-specific errors
-                Log.d("TAG", "WEB VIEW RESPONSE:  " + errorResponse.getStatusCode());
-                pageLoadFailed = true; // Set the flag to true for HTTP errors
-                if (errorResponse.getStatusCode() == 404) {
-                    loading.setVisibility(View.VISIBLE);
-                    webView.setVisibility(View.GONE);
-                }
+                super.onReceivedHttpError(view, request, errorResponse);
+                pageLoadFailed = true;
+                Log.d("WEB_VIEW_HTTP_ERROR", "HTTP Error: " + errorResponse.getStatusCode());
+                loading.setVisibility(View.VISIBLE);
+                webView.setVisibility(View.GONE);
             }
         });
 
+        webView.getSettings().setJavaScriptEnabled(true);
 
-
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            webView.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        }
 
         DatabaseReference db = FirebaseDatabase.getInstance().getReference("doorbell");
-
         db.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (snapshot.exists()) {
-                    String ipAdd = snapshot.child("ipAddress").getValue().toString();
-                    webView.loadUrl(ipAdd);
-
+                    String ipAdd = snapshot.child("ipAddress").getValue(String.class);
+                    if (ipAdd != null && !ipAdd.startsWith("http://")) {
+                        ipAdd = "http://" + ipAdd;
+                    }
+                    Log.d("WebView URL", "Loading URL: " + ipAdd + ":7123");
+                    webView.loadUrl(ipAdd + ":7123");
                 } else {
-                    Log.d("TAG", "Snapshot doesn't exist ");
+                    Log.d("TAG", "Snapshot does not exist");
                 }
             }
 
@@ -208,66 +200,51 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-
-
-    private void playRingtone(){
+    private void playRingtone() {
         Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
         ringtone = RingtoneManager.getRingtone(this, soundUri);
         ringtone.play();
     }
 
-    private void stopRingtone(){
-        if (ringtone != null && ringtone.isPlaying()){
+    private void stopRingtone() {
+        if (ringtone != null && ringtone.isPlaying()) {
             ringtone.stop();
         }
     }
 
     private void createNotification() {
-        //If version is greater than version oreo, notification proceeds
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel notificationChannel = new NotificationChannel("Doorbell",
                     "Doorbell", NotificationManager.IMPORTANCE_HIGH);
             notificationChannel.enableVibration(true);
-            notificationChannel.setVibrationPattern(new long[]{100,1000,200,340});
+            notificationChannel.setVibrationPattern(new long[]{100, 1000, 200, 340});
             notificationChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
 
-            NotificationManager notificationManager =  getApplicationContext().getSystemService(NotificationManager.class);
+            NotificationManager notificationManager = getApplicationContext().getSystemService(NotificationManager.class);
             notificationManager.createNotificationChannel(notificationChannel);
         }
     }
 
-    private void getNotify(){
-        Context context = this;
-        if (context != null){
+    private void getNotify() {
+        String alertMessage = "Doorbell clicked";
+        Intent notificationIntent = new Intent(getApplicationContext(), MainActivity.class);
+        notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE);
 
-            String alertMessage = "Doorbell clicked";
-            Intent notificationIntent = new Intent(getApplicationContext(), MainActivity.class);
-            notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            PendingIntent pendingIntent = PendingIntent.getActivity(this, 0,notificationIntent, PendingIntent.FLAG_IMMUTABLE);
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "Doorbell")
+                .setContentTitle("Doorbell")
+                .setSmallIcon(R.drawable.ic_logo)
+                .setAutoCancel(true)
+                .setContentText(alertMessage)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setVibrate(new long[]{100, 1000, 200, 340})
+                .setContentIntent(pendingIntent);
 
-            NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "Doorbell");
-            builder.setContentTitle("Doorbell");
-            builder.setSmallIcon(R.drawable.ic_logo);
-            builder.setAutoCancel(true);
-            builder.setContentText(alertMessage);
-            builder.setPriority(NotificationCompat.PRIORITY_HIGH);
-            builder.setVibrate(new long[] {100,1000,200,340});
-            builder.setContentIntent(pendingIntent);
-
-
-            NotificationManagerCompat manager = NotificationManagerCompat.from(this);
-            if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                // TODO: Consider calling
-                //    ActivityCompat#requestPermissions
-                // here to request the missing permissions, and then overriding
-                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                //                                          int[] grantResults)
-                // to handle the case where the user grants the permission. See the documentation
-                // for ActivityCompat#requestPermissions for more details.
-                return;
-            }
-            manager.notify(0, builder.build());
+        NotificationManagerCompat manager = NotificationManagerCompat.from(this);
+        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            return;
         }
+        manager.notify(0, builder.build());
     }
 
     private void setUpDoorbellNotify() {
@@ -275,10 +252,9 @@ public class MainActivity extends AppCompatActivity {
         db.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (snapshot.exists()){
-                    boolean isDoorbellClicked = (boolean) snapshot.child("isClick").getValue();
-
-                    if (isDoorbellClicked){
+                if (snapshot.exists()) {
+                    boolean isDoorbellClicked = snapshot.child("isClick").getValue(Boolean.class);
+                    if (isDoorbellClicked) {
                         getNotify();
                         playRingtone();
                     } else {
@@ -290,22 +266,14 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                Log.d("TAG", "Failed to fetch doorbell data");
+                Log.d("TAG", "Failed to fetch doorbell status: " + error.getMessage());
             }
         });
     }
 
-    private void setUpButtons() {
-        logoutBtn.setOnClickListener(v->{
-            FirebaseAuth.getInstance().signOut();
-            startActivity(new Intent(getApplicationContext(), Login.class));
-        });
-    }
-
-    private void initWidgets() {
-        logoutBtn = findViewById(R.id.logout_ImageView);
-        webView = findViewById(R.id.webview);
-        loading = findViewById(R.id.loading_TextView);
-        lockBtn = findViewById(R.id.lock_Button);
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        stopRingtone();
     }
 }

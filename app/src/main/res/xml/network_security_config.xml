@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
+    <base-config cleartextTrafficPermitted="true"/>
     <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">localhost</domain> <!-- For localhost access -->
+        <domain includeSubdomains="true">192.168.0.0/16</domain> <!-- Allows all IPs in the 192.168.x.x range -->
+        <domain includeSubdomains="true">10.0.2.2</domain> <!-- For Android Emulator -->
     </domain-config>
+
     <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">network</domain>
+        <domain includeSubdomains="true">network</domain> <!-- Replace 'network' with your specific domain if needed -->
     </domain-config>
 </network-security-config>
